@@ -1,8 +1,9 @@
 [bits 16]
-[org 0x0600]
+[org 0x0500]
 
 _start:
     cli;
+
     xor ax, ax;
     mov ds, ax;
     mov es, ax;
@@ -12,7 +13,7 @@ _start:
     .Relocate:
         mov cx, 256;
         mov si, 0x7c00;
-        mov di, 0x600;
+        mov di, 0x500;
         rep movsw;
     
     jmp 0:MBRbootStart
@@ -37,7 +38,7 @@ jumpToCx:
     jmp cx
 
 findVBR:
-    mov bx, bootSector
+    mov bx, ActivePartition
     mov cl, 1
     mov al, [bx]
     search:
@@ -50,16 +51,11 @@ findVBR:
         mov al, [bx]
         jmp search
     VBRfound:
-        mov ah, 0x0e
-        mov al, 'S'
-        int 0x10
         prepVBRdataPacket:
             add bx, 8;                  LBA Address offset
             mov DWORD eax, [bx]
             mov [VBRaddressLBA], eax
-            add bx, 4;                  Number of sectors offset
-            mov WORD ax, [bx]
-            mov [VBRsectorsNo], ax
+            mov WORD [VBRsectorsNo], 10 ;number of sectors to load (VBR size)
 
         checkIfLBA:
             clc
@@ -90,8 +86,9 @@ useCHS:
     jmp end
 
 verifyVBR:
-    cmp WORD [0x7DFE], 0xAA55
+    cmp WORD [0x8FFE], 0xAA55
     jne verifyError
+    mov dl, [bootDrive]
     jmp 0:0x7c00
 
 verifyError:
@@ -136,13 +133,13 @@ end times 0x1bc-($-$$) db 0;    Padding till disk entries
 db 0, 0;                    reserved
 ;PARTITION TABLE IS """NOT""" ALIGNED ON 4 BYTE BOUNDARY
 ;IT IS ENCODED IN LITTLE ENDIAN
-bootSector:                
+ActivePartition:                
     db 0x80;                Active (bootable)
     db 0, 2, 0;             H C S of first sector in partition
     db 0x7f;                Custom filesystem
     db 0, 11, 0;            H C S of last sector in partition
     dd 1;                   LBA of first sector
-    dd 10;                  number of sectors in partition
+    dd 1000;                number of sectors in partition
 kernelSector times 16 db 0
 deviceStorage times 16 db 0
 unused times 16 db 0
